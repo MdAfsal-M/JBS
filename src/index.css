@@ -1,0 +1,265 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 220 100% 99%; /* very light blue (almost white) */
+    --foreground: 220 40% 20%; /* deep blue for text */
+    --card: 0 0% 100%; /* white */
+    --card-foreground: 220 40% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 40% 20%;
+    --primary: 220 90% 56%; /* vibrant blue */
+    --primary-foreground: 0 0% 100%; /* white text on blue */
+    --primary-glow: 210 100% 80%; /* light blue glow */
+    --secondary: 210 60% 96%; /* pale blue */
+    --secondary-foreground: 220 40% 30%;
+    --muted: 210 40% 95%;
+    --muted-foreground: 220 20% 50%;
+    --accent: 200 100% 90%; /* soft blue accent */
+    --accent-foreground: 220 40% 30%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 30% 90%;
+    --input: 220 30% 95%;
+    --ring: 220 90% 56%;
+    --radius: 0.75rem;
+    
+    /* Blue gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(220 90% 56%), hsl(210 100% 80%));
+    --gradient-secondary: linear-gradient(135deg, hsl(210 60% 96%), hsl(220 40% 99%));
+    --gradient-accent: linear-gradient(135deg, hsl(200 100% 90%), hsl(210 100% 80%));
+    --gradient-hero: linear-gradient(135deg, hsl(220 90% 56%), hsl(210 100% 80%));
+
+    --sidebar-background: 220 40% 98%;
+    --sidebar-foreground: 220 40% 20%;
+    --sidebar-primary: 220 90% 56%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 60% 96%;
+    --sidebar-accent-foreground: 220 40% 20%;
+    --sidebar-border: 220 30% 90%;
+    --sidebar-ring: 220 90% 56%;
+  }
+
+  .dark {
+    --background: 220 40% 12%; /* deep blue */
+    --foreground: 220 20% 95%; /* off-white */
+    --card: 220 40% 16%;
+    --card-foreground: 220 20% 95%;
+    --popover: 220 40% 16%;
+    --popover-foreground: 220 20% 95%;
+    --primary: 220 90% 66%;
+    --primary-foreground: 220 40% 12%;
+    --primary-glow: 210 100% 70%;
+    --secondary: 220 30% 20%;
+    --secondary-foreground: 220 20% 95%;
+    --muted: 220 20% 18%;
+    --muted-foreground: 220 10% 70%;
+    --accent: 210 100% 30%;
+    --accent-foreground: 220 20% 95%;
+    --destructive: 0 72% 61%;
+    --destructive-foreground: 0 0% 95%;
+    --border: 220 20% 18%;
+    --input: 220 20% 18%;
+    --ring: 220 90% 66%;
+    
+    /* Blue gradients for dark mode */
+    --gradient-primary: linear-gradient(135deg, hsl(220 90% 66%), hsl(210 100% 70%));
+    --gradient-secondary: linear-gradient(135deg, hsl(220 30% 20%), hsl(220 20% 22%));
+    --gradient-accent: linear-gradient(135deg, hsl(210 100% 30%), hsl(210 100% 40%));
+    --gradient-hero: linear-gradient(135deg, hsl(220 90% 66%), hsl(210 100% 70%));
+
+    --sidebar-background: 220 40% 12%;
+    --sidebar-foreground: 220 20% 95%;
+    --sidebar-primary: 220 90% 66%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 30% 20%;
+    --sidebar-accent-foreground: 220 20% 95%;
+    --sidebar-border: 220 20% 18%;
+    --sidebar-ring: 220 90% 66%;
+  }
+
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Typography hierarchy */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+  }
+
+  h1 {
+    font-weight: 700;
+    letter-spacing: -0.05em;
+  }
+
+  h2 {
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+
+  /* Gradient text for headings */
+  .gradient-text {
+    background: linear-gradient(135deg, hsl(220 90% 56%), hsl(210 100% 80%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Professional button text */
+  button, .btn {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-weight: 500;
+    letter-spacing: 0.025em;
+  }
+
+  /* Card and component text */
+  .card, .component {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  }
+
+  /* Navigation text */
+  nav a, nav button {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  /* Form elements */
+  input, textarea, select {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-weight: 400;
+  }
+
+  /* Admin dashboard specific */
+  .admin-text {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-weight: 500;
+  }
+
+  /* Hero section text */
+  .hero-text {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  /* Section headings */
+  .section-heading {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  /* Card titles */
+  .card-title {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* Body text */
+  .body-text {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  /* Navigation text */
+  .nav-text {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+}
+
+@layer utilities {
+  .bg-gradient-primary {
+    background: var(--gradient-primary);
+  }
+  
+  .bg-gradient-secondary {
+    background: var(--gradient-secondary);
+  }
+  
+  .bg-gradient-accent {
+    background: var(--gradient-accent);
+  }
+  
+  .bg-gradient-hero {
+    background: var(--gradient-hero);
+  }
+  
+  .bg-gradient-professional {
+    background: linear-gradient(135deg, hsl(220 90% 56%), hsl(210 100% 80%));
+  }
+  
+  .shadow-glow {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+  }
+  
+  .shadow-elegant {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.6s ease-in-out;
+  }
+  
+  .animate-scale-in {
+    animation: scaleIn 0.6s ease-out;
+  }
+  
+  .animate-bounce-subtle {
+    animation: bounceSubtle 2s infinite;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  @keyframes bounceSubtle {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-5px);
+    }
+  }
+}
