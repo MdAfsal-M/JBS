@@ -153,6 +153,11 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Root health-check route
+app.get("/", (req, res) => {
+  res.send("✅ JBS Backend is running successfully!");
+});
+
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
