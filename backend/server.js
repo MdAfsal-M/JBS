@@ -1,3 +1,5 @@
+// server.js
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -38,74 +40,55 @@ const ownerJobsRoutes = require('./routes/ownerJobs');
 // Initialize express app
 const app = express();
 
-// Security middleware
+// --- TRUST PROXY (for Render hosting + rate-limiter) ---
+app.set('trust proxy', 1);
+
+// --- SECURITY / MIDDLEWARE ---
 app.use(helmet());
-
-// Compression middleware
 app.use(compression());
-
-// Logging middleware
 app.use(morgan('combined'));
 
-// Rate limiting
-app.use('/api/', apiLimiter);
+// --- CORS CONFIGURATION ---
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['https://jbs1.netlify.app'];
 
-// Enhanced CORS middleware
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    // Allow localhost on any port (development)
-    if (origin.match(/^https?:\/\/localhost:\d+$/)) {
-      return callback(null, true);
-    }
-    
-    // Allow your production domain if you have one
-    if (process.env.NODE_ENV === 'production' && origin === process.env.FRONTEND_URL) {
-      return callback(null, true);
-    }
-    
-    // Allow specific domains from environment variable
-    const allowedOrigins = process.env.ALLOWED_ORIGINS ? 
-      process.env.ALLOWED_ORIGINS.split(',') : [];
-    
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true); // mobile apps or curl
+    if (/^https?:\/\/localhost:\d+$/.test(origin)) return callback(null, true); // dev
+    if (allowedOrigins.includes(origin)) return callback(null, true); // production frontend
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Content-Length', 'X-Requested-With'],
-  preflightContinue: false,
-  optionsSuccessStatus: 204
+  methods: ['GET','POST','PUT','DELETE','OPTIONS','PATCH'],
+  allowedHeaders: ['Content-Type','Authorization','X-Requested-With','Accept','Origin']
 }));
 
-// Handle preflight requests explicitly for all routes
+// Handle preflight requests
 app.options('*', cors());
 
-// Body parsing middleware
+// --- BODY PARSING ---
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Database connection
-const mongoUri = process.env.MONGODB_URI || 'mongodb+srv://mdafsalm33:zMw0Dtluig6Kiw03@cluster0.ypgm4uz.mongodb.net/jbs_database?retryWrites=true&w=majority&appName=Cluster0';
+// --- RATE LIMITING ---
+app.use('/api/', apiLimiter);
+
+// --- DATABASE CONNECTION ---
+const mongoUri = process.env.MONGODB_URI || 'your_local_or_default_mongo_uri';
 mongoose
   .connect(mongoUri, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    // Helpful on Atlas when DNS/SRV resolution or slow networks cause timeouts
-    serverSelectionTimeoutMS: 20000, // 20s
-    socketTimeoutMS: 45000, // 45s
-    family: 4, // Force IPv4
+    serverSelectionTimeoutMS: 20000,
+    socketTimeoutMS: 45000,
+    family: 4
   })
   .then(() => console.log('MongoDB connected successfully'))
   .catch((err) => console.error('MongoDB connection error:', err));
 
-// Routes
+// --- ROUTES ---
 app.use('/api/auth', authRoutes);
 app.use('/api/owner', ownerRoutes);
 app.use('/api/dashboard', dashboardRoutes);
@@ -120,31 +103,24 @@ app.use('/api/student', studentRoutes);
 app.use('/api/opportunities', opportunitiesRoutes);
 app.use('/api/student-opportunities', studentOpportunitiesRoutes);
 app.use('/api/owner-opportunities', ownerOpportunitiesRoutes);
-app.use('/api/student', studentApplicationsRoutes);
+app.use('/api/student-applications', studentApplicationsRoutes);
 app.use('/api/student-view', studentViewRoutes);
-app.use('/api/owner', ownerApplicationsRoutes);
+app.use('/api/owner-applications', ownerApplicationsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/owner-jobs', ownerJobsRoutes);
 
-// Health check endpoint
+// --- HEALTH CHECK ENDPOINTS ---
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    message: 'Server is running',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
+  res.json({ status: 'OK', message: 'Server is running', timestamp: new Date().toISOString(), uptime: process.uptime() });
 });
 
-// Database health endpoint
 app.get('/api/health/db', (req, res) => {
-  // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
   const state = mongoose.connection.readyState;
   const status = state === 1 ? 'connected' : (state === 2 ? 'connecting' : 'not-connected');
   res.json({ db: status, state });
 });
 
-// Error handling middleware
+// --- ERROR HANDLING ---
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ 
@@ -153,29 +129,27 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Root health-check route
+// --- ROOT ROUTE ---
 app.get("/", (req, res) => {
   res.send("✅ JBS Backend is running successfully!");
 });
 
-// 404 handler
+// --- 404 HANDLER ---
 app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Check required environment variables
+// --- CHECK ENV VARIABLES ---
 if (!process.env.JWT_SECRET) {
   console.error('❌ CRITICAL ERROR: JWT_SECRET environment variable is not set!');
-  console.error('   This will cause all authentication to fail.');
-  console.error('   Please create a .env file with JWT_SECRET=your_secret_key');
   process.exit(1);
 }
 
-// Start server
+// --- START SERVER ---
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔐 JWT_SECRET: ${process.env.JWT_SECRET ? 'Configured' : 'NOT SET'}`);
-  console.log(`🗄️  MongoDB: Connected`);
 });
+
