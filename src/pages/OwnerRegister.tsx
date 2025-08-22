@@ -138,7 +138,7 @@ const OwnerRegister = () => {
       }
 
       // Register owner and get redirect path
-      const redirectPath = await ownerRegister(registrationData);
+      await ownerRegister(registrationData);
       
       toast({
         title: t("Registration Successful!"),
@@ -146,11 +146,7 @@ const OwnerRegister = () => {
       });
       
       // Navigate to the appropriate dashboard
-      if (redirectPath) {
-        navigate(redirectPath);
-      } else {
-        navigate("/owner-dashboard");
-      }
+      navigate("/owner-dashboard");
     } catch (error: any) {
       console.error('Registration error:', error);
       

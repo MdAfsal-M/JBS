@@ -168,7 +168,7 @@ const OwnerDashboard = () => {
     if (user) {
       const userProfile = {
         name: user.profile?.firstName && user.profile?.lastName ? 
-          `${user.profile.firstName} ${user.profile.lastName}` : user.username || 'Owner User',
+          `${user.profile.firstName} ${user.profile.lastName}` : (user as any).username || 'Owner User',
         email: user.email || '',
         phone: user.profile?.phone || '',
         city: user.profile?.city || '',
@@ -216,34 +216,6 @@ const OwnerDashboard = () => {
   const [showJobFiltersDialog, setShowJobFiltersDialog] = useState(false);
   const [showJobSettingsDialog, setShowJobSettingsDialog] = useState(false);
 
-  // Real-time owner jobs with filters (for analytics)
-  const { data: ownerJobsResult, isFetching: ownerJobsLoading, refetch: refetchOwnerJobs } = useQuery({
-    queryKey: ['owner-jobs', jobStatus, jobSearchQuery],
-    queryFn: () => ownerJobsAPI.getJobs({
-      status: jobStatus,
-      search: jobSearchQuery,
-      limit: 1000,
-      page: 1,
-    }),
-    refetchInterval: 5000,
-    keepPreviousData: true,
-    staleTime: 4000,
-  });
-
-  // Real-time owner internships with filters (for analytics)
-  const { data: ownerInternshipsResult, isFetching: ownerInternshipsLoading, refetch: refetchOwnerInternships } = useQuery({
-    queryKey: ['owner-internships', internshipStatus, internshipSearchQuery],
-    queryFn: () => ownerJobsAPI.getInternships({
-      status: internshipStatus,
-      search: internshipSearchQuery,
-      limit: 1000,
-      page: 1,
-    }),
-    refetchInterval: 5000,
-    keepPreviousData: true,
-    staleTime: 4000,
-  });
-  
   // New state variables for Applicants and Job Details features
   const [showApplicantsDialog, setShowApplicantsDialog] = useState(false);
   const [showJobDetailsDialog, setShowJobDetailsDialog] = useState(false);
@@ -268,6 +240,34 @@ const OwnerDashboard = () => {
   const [internshipSortBy, setInternshipSortBy] = useState("date");
   const [internshipStatus, setInternshipStatus] = useState("all");
   const [internshipType, setInternshipType] = useState("all");
+
+  // Real-time owner jobs with filters (for analytics)
+  const { data: ownerJobsResult, isFetching: ownerJobsLoading, refetch: refetchOwnerJobs } = useQuery({
+    queryKey: ['owner-jobs', jobStatus, jobSearchQuery],
+    queryFn: () => ownerJobsAPI.getJobs({
+      status: jobStatus,
+      search: jobSearchQuery,
+      limit: 1000,
+      page: 1,
+    }),
+    refetchInterval: 5000,
+    placeholderData: (previousData) => previousData,
+    staleTime: 4000,
+  });
+
+  // Real-time owner internships with filters (for analytics)
+  const { data: ownerInternshipsResult, isFetching: ownerInternshipsLoading, refetch: refetchOwnerInternships } = useQuery({
+    queryKey: ['owner-internships', internshipStatus, internshipSearchQuery],
+    queryFn: () => ownerJobsAPI.getInternships({
+      status: internshipStatus,
+      search: internshipSearchQuery,
+      limit: 1000,
+      page: 1,
+    }),
+    refetchInterval: 5000,
+    placeholderData: (previousData) => previousData,
+    staleTime: 4000,
+  });
   
   // Buy product state
   const [selectedProductForBuy, setSelectedProductForBuy] = useState<any>(null);
@@ -778,46 +778,13 @@ const OwnerDashboard = () => {
     }
 
     if (jobType !== "all") {
-      filtered = filtered.filter(job => (job.jobType || j.type) === jobType);
+      filtered = filtered.filter(job => (job.jobType || job.type) === jobType);
     }
 
     return filtered;
   };
 
-  const getFilteredInternships = () => {
-    // Use API data if available, otherwise fall back to mock data
-    const internshipsData = ownerInternshipsResult?.data || internships;
-    let filtered = internshipsData;
-    
-    if (internshipSearchQuery) {
-      filtered = filtered.filter(internship => 
-        internship.title?.toLowerCase().includes(internshipSearchQuery.toLowerCase()) ||
-        internship.company?.toLowerCase().includes(internshipSearchQuery.toLowerCase()) ||
-        internship.location?.toLowerCase().includes(internshipSearchQuery.toLowerCase())
-      );
-    }
-    
-    if (internshipType !== "all") {
-      filtered = filtered.filter(internship => internship.type === internshipType);
-    }
-    
-    if (internshipStatus !== "all") {
-      filtered = filtered.filter(internship => internship.status === internshipStatus);
-    }
-    
-    // Apply sorting
-    if (internshipSortBy === "date") {
-      filtered = filtered.sort((a, b) => new Date(b.createdAt || b.posted).getTime() - new Date(a.createdAt || a.posted).getTime());
-    } else if (internshipSortBy === "views") {
-      filtered = filtered.sort((a, b) => (b.views || 0) - (a.views || 0));
-    } else if (internshipSortBy === "applicants") {
-      filtered = filtered.sort((a, b) => (b.applicants || 0) - (a.applicants || 0));
-    } else if (internshipSortBy === "title") {
-      filtered = filtered.sort((a, b) => a.title.localeCompare(b.title));
-    }
-    
-    return filtered;
-  };
+
 
   const getFilteredProducts = () => {
     let filtered = products;
@@ -1102,6 +1069,277 @@ const OwnerDashboard = () => {
     );
   };
 
+  // Helper functions for job and internship management
+  const validateContactNumber = (contact: string): boolean => {
+    const phoneRegex = /^[6-9]\d{9}$/;
+    return phoneRegex.test(contact);
+  };
+
+  const getFilteredInternships = () => {
+    if (!ownerInternshipsResult) return [];
+    // Type assertion to handle the unknown type
+    const result = ownerInternshipsResult as any;
+    return result.data || result || [];
+  };
+
+  // Handle job posting
+  const handlePostJob = async () => {
+    try {
+      // Validate required fields
+      if (!newJob.title || !newJob.company || !newJob.location || !newJob.pay || !newJob.description || !newJob.contactDetails || !newJob.requirements.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Please fill in all required fields including requirements.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Validate contact number
+      if (!validateContactNumber(newJob.contactDetails)) {
+        toast({
+          title: "Invalid Contact Number",
+          description: "Please enter a valid 10-digit Indian mobile number.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Prepare job data for API
+      const jobData = {
+        title: newJob.title,
+        company: newJob.company,
+        location: newJob.location,
+        pay: newJob.pay,
+        jobType: newJob.type,
+        description: newJob.description,
+        requirements: newJob.requirements
+          .split('\n')
+          .filter(req => req.trim())
+          .flatMap(req => req.split(',').map(r => r.trim()))
+          .filter(req => req.length > 0)
+          .map(req => req.replace(/^[-•*]\s*/, '')), // Remove bullet points if any
+        category: newJob.category,
+        experience: newJob.experience,
+        payType: newJob.payType,
+        isRemote: newJob.isRemote,
+        isUrgent: newJob.isUrgent,
+        contactInfo: {
+          phone: newJob.contactDetails
+        }
+      };
+
+      console.log('Sending job data:', jobData);
+
+      // Create job using API
+      const response = await jobsAPI.create(jobData);
+      
+      toast({
+        title: "Job Posted Successfully",
+        description: "Your job has been posted and is now live."
+      });
+
+      // Reset form and close dialog
+      setShowJobDialog(false);
+      setNewJob({
+        title: "", 
+        company: "", 
+        location: "", 
+        pay: "", 
+        duration: "", 
+        type: "full-time", 
+        description: "", 
+        requirements: "", 
+        contactDetails: "", 
+        genderPreference: "any",
+        category: "General",
+        experience: "Entry Level",
+        payType: "monthly",
+        isRemote: false,
+        isUrgent: false
+      });
+
+      // Immediately show the newly created job's details
+      const createdJob = (response as any)?.job || (response as any);
+      if (createdJob?.id || createdJob?._id) {
+        const newId = createdJob.id || createdJob._id;
+        setSelectedJobId(newId);
+        setSelectedJob(createdJob);
+        setIsEditingJob(false);
+        setShowJobDetailsDialog(true);
+        setCurrentView("jobs");
+      }
+      
+    } catch (error: any) {
+      console.error('Error posting job:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      
+      let errorMessage = "Failed to post job. Please try again.";
+      
+      if (error.response?.data?.errors) {
+        // Handle validation errors from backend
+        const validationErrors = error.response.data.errors;
+        errorMessage = validationErrors.map((err: any) => err.msg).join(', ');
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast({
+        title: "Error Posting Job",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle internship posting
+  const handlePostInternship = async () => {
+    try {
+      // Validate required fields
+      if (!newInternship.title || !newInternship.company || !newInternship.location || !newInternship.stipend || !newInternship.description || !newInternship.contactDetails) {
+        toast({
+          title: "Validation Error",
+          description: "Please fill in all required fields.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Validate contact number
+      if (!validateContactNumber(newInternship.contactDetails)) {
+        toast({
+          title: "Invalid Contact Number",
+          description: "Please enter a valid 10-digit Indian mobile number.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Prepare internship data for API
+      const internshipData = {
+        title: newInternship.title,
+        company: newInternship.company,
+        location: newInternship.location,
+        stipend: newInternship.stipend,
+        duration: newInternship.duration,
+        stipendType: newInternship.type,
+        description: newInternship.description,
+        requirements: newInternship.requirements.split('\n').filter(req => req.trim()),
+        category: newInternship.category,
+        startDate: new Date().toISOString(), // Default to current date
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Default to 30 days from now
+        applicationDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Default to 7 days from now
+        isRemote: newInternship.isRemote,
+        isUrgent: newInternship.isUrgent,
+        contactInfo: {
+          phone: newInternship.contactDetails
+        }
+      };
+
+      // Create internship using API
+      const response = await internshipsAPI.create(internshipData);
+      
+      toast({
+        title: "Internship Posted Successfully",
+        description: "Your internship has been posted and is now live."
+      });
+
+      // Reset form and close dialog
+      setShowInternshipDialog(false);
+      setNewInternship({
+        title: "", 
+        company: "", 
+        location: "", 
+        stipend: "", 
+        duration: "", 
+        type: "paid", 
+        description: "", 
+        requirements: "", 
+        skills: "", 
+        contactDetails: "", 
+        genderPreference: "any",
+        category: "General",
+        startDate: "",
+        endDate: "",
+        applicationDeadline: "",
+        isRemote: false,
+        isUrgent: false
+      });
+
+      // Refresh dashboard data
+      // You might want to add a refetch function here
+      
+    } catch (error: any) {
+      console.error('Error posting internship:', error);
+      toast({
+        title: "Error Posting Internship",
+        description: error.response?.data?.message || "Failed to post internship. Please try again.",
+        variant: "destructive"
+        });
+    }
+  };
+
+  // Analytics rendering functions
+  const renderJobAnalyticsCards = () => {
+    const analytics = getJobAnalyticsData();
+    return (
+      <>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Jobs</p>
+                <p className="text-2xl font-bold">{analytics.totalJobs}</p>
+              </div>
+              <Briefcase className="h-8 w-8 text-primary" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Views</p>
+                <p className="text-2xl font-bold">{analytics.totalViews}</p>
+              </div>
+              <Eye className="h-8 w-8 text-primary" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Applicants</p>
+                <p className="text-2xl font-bold">{analytics.totalApplicants}</p>
+              </div>
+              <Users className="h-8 w-8 text-primary" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Best Performing</p>
+                <p className="text-sm font-medium truncate">{analytics.bestPerformingJob}</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-primary" />
+            </div>
+          </CardContent>
+        </Card>
+      </>
+    );
+  };
+
+
+
   // Product Managing button handlers
   const handleAddVariation = () => {
     setShowAddVariationDialog(true);
@@ -1212,13 +1450,7 @@ const OwnerDashboard = () => {
     });
   };
 
-  // Contact number validation function
-  const validateContactNumber = (contact: string): boolean => {
-    // Remove all non-digit characters
-    const cleanContact = contact.replace(/\D/g, '');
-    // Check if it's exactly 10 digits and starts with 6-9 (Indian mobile format)
-    return /^[6-9]\d{9}$/.test(cleanContact);
-  };
+
 
   // Format contact number for display
   const formatContactNumber = (contact: string): string => {
@@ -1672,57 +1904,7 @@ const OwnerDashboard = () => {
     };
   };
 
-    const renderJobAnalyticsCards = () => {
-    const analytics = getJobAnalyticsData();
-    return (
-      <>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Jobs</p>
-                <p className="text-2xl font-bold">{analytics.totalJobs}</p>
-              </div>
-              <Briefcase className="h-8 w-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Total Views</p>
-              <p className="text-2xl font-bold">{analytics.totalViews}</p>
-            </div>
-            <Eye className="h-8 w-8 text-primary" />
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Total Applicants</p>
-              <p className="text-2xl font-bold">{analytics.totalApplicants}</p>
-            </div>
-            <Users className="h-8 w-8 text-primary" />
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Best Performing</p>
-              <p className="text-sm font-medium truncate">{analytics.bestPerformingJob}</p>
-            </div>
-            <TrendingUp className="h-8 w-8 text-primary" />
-          </div>
-        </CardContent>
-      </Card>
-    </>
-  );
-};
+
 
   const renderInternshipAnalyticsCards = () => {
     const internshipsData = getFilteredInternships();
@@ -1776,217 +1958,14 @@ const OwnerDashboard = () => {
                 <p className="text-sm font-medium truncate">{bestPerformingInternship?.title || "No internships yet"}</p>
               </div>
               <TrendingUp className="h-8 w-8 text-primary" />
-          </div>
+            </div>
         </CardContent>
       </Card>
     </>
   );
 };
 
-  // Handle job posting
-  const handlePostJob = async () => {
-    try {
-      // Validate required fields
-      if (!newJob.title || !newJob.company || !newJob.location || !newJob.pay || !newJob.description || !newJob.contactDetails || !newJob.requirements.trim()) {
-        toast({
-          title: "Validation Error",
-          description: "Please fill in all required fields including requirements.",
-          variant: "destructive"
-        });
-        return;
-      }
 
-      // Validate contact number
-      if (!validateContactNumber(newJob.contactDetails)) {
-        toast({
-          title: "Invalid Contact Number",
-          description: "Please enter a valid 10-digit Indian mobile number.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Prepare job data for API
-      const jobData = {
-        title: newJob.title,
-        company: newJob.company,
-        location: newJob.location,
-        pay: newJob.pay,
-        jobType: newJob.type,
-        description: newJob.description,
-        requirements: newJob.requirements
-          .split('\n')
-          .filter(req => req.trim())
-          .flatMap(req => req.split(',').map(r => r.trim()))
-          .filter(req => req.length > 0)
-          .map(req => req.replace(/^[-•*]\s*/, '')), // Remove bullet points if any
-        category: newJob.category,
-        experience: newJob.experience,
-        payType: newJob.payType,
-        isRemote: newJob.isRemote,
-        isUrgent: newJob.isUrgent,
-        contactInfo: {
-          phone: newJob.contactDetails
-        }
-      };
-
-
-
-      console.log('Sending job data:', jobData);
-
-      // Create job using API
-      const response = await jobsAPI.create(jobData);
-      
-      toast({
-        title: "Job Posted Successfully",
-        description: "Your job has been posted and is now live."
-      });
-
-      // Reset form and close dialog
-      setShowJobDialog(false);
-      setNewJob({
-        title: "", 
-        company: "", 
-        location: "", 
-        pay: "", 
-        duration: "", 
-        type: "full-time", 
-        description: "", 
-        requirements: "", 
-        contactDetails: "", 
-        genderPreference: "any",
-        category: "General",
-        experience: "Entry Level",
-        payType: "monthly",
-        isRemote: false,
-        isUrgent: false
-      });
-
-      // Immediately show the newly created job's details
-      const createdJob = (response as any)?.job || (response as any);
-      if (createdJob?.id || createdJob?._id) {
-        const newId = createdJob.id || createdJob._id;
-        setSelectedJobId(newId);
-        setSelectedJob(createdJob);
-        setIsEditingJob(false);
-        setShowJobDetailsDialog(true);
-        setCurrentView("jobs");
-      }
-      
-    } catch (error) {
-      console.error('Error posting job:', error);
-      console.error('Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
-      
-      let errorMessage = "Failed to post job. Please try again.";
-      
-      if (error.response?.data?.errors) {
-        // Handle validation errors from backend
-        const validationErrors = error.response.data.errors;
-        errorMessage = validationErrors.map((err: any) => err.msg).join(', ');
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      toast({
-        title: "Error Posting Job",
-        description: errorMessage,
-        variant: "destructive"
-      });
-    }
-  };
-
-  // Handle internship posting
-  const handlePostInternship = async () => {
-    try {
-      // Validate required fields
-      if (!newInternship.title || !newInternship.company || !newInternship.location || !newInternship.stipend || !newInternship.description || !newInternship.contactDetails) {
-        toast({
-          title: "Validation Error",
-          description: "Please fill in all required fields.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Validate contact number
-      if (!validateContactNumber(newInternship.contactDetails)) {
-        toast({
-          title: "Invalid Contact Number",
-          description: "Please enter a valid 10-digit Indian mobile number.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Prepare internship data for API
-      const internshipData = {
-        title: newInternship.title,
-        company: newInternship.company,
-        location: newInternship.location,
-        stipend: newInternship.stipend,
-        duration: newInternship.duration,
-        stipendType: newInternship.type,
-        description: newInternship.description,
-        requirements: newInternship.requirements.split('\n').filter(req => req.trim()),
-        category: newInternship.category,
-        startDate: new Date().toISOString(), // Default to current date
-        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Default to 30 days from now
-        applicationDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Default to 7 days from now
-        isRemote: newInternship.isRemote,
-        isUrgent: newInternship.isUrgent,
-        contactInfo: {
-          phone: newInternship.contactDetails
-        }
-      };
-
-      // Create internship using API
-      const response = await internshipsAPI.create(internshipData);
-      
-      toast({
-        title: "Internship Posted Successfully",
-        description: "Your internship has been posted and is now live."
-      });
-
-      // Reset form and close dialog
-      setShowInternshipDialog(false);
-      setNewInternship({
-        title: "", 
-        company: "", 
-        location: "", 
-        stipend: "", 
-        duration: "", 
-        type: "paid", 
-        description: "", 
-        requirements: "", 
-        skills: "", 
-        contactDetails: "", 
-        genderPreference: "any",
-        category: "General",
-        startDate: "",
-        endDate: "",
-        applicationDeadline: "",
-        isRemote: false,
-        isUrgent: false
-      });
-
-      // Refresh dashboard data
-      // You might want to add a refetch function here
-      
-    } catch (error) {
-      console.error('Error posting internship:', error);
-      toast({
-        title: "Error Posting Internship",
-        description: error.response?.data?.message || "Failed to post internship. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -2285,7 +2264,7 @@ const OwnerDashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {/* Post New Job */}
                                      <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => {
-                     setSelectedOpportunityType('Job');
+                     setSelectedOpportunityType('job');
                      setShowOpportunityForm(true);
                    }}>
                     <CardContent className="p-6 text-center">
@@ -2301,7 +2280,7 @@ const OwnerDashboard = () => {
 
                   {/* Post New Internship */}
                                      <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => {
-                     setSelectedOpportunityType('Internship');
+                     setSelectedOpportunityType('internship');
                      setShowOpportunityForm(true);
                    }}>
                     <CardContent className="p-6 text-center">
@@ -3092,7 +3071,10 @@ const OwnerDashboard = () => {
                   </div>
                 </CardContent>
               </Card>
-                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+
+              {/* Internship Dialog */}
+              <Dialog open={showInternshipDialog} onOpenChange={setShowInternshipDialog}>
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>Post New Internship</DialogTitle>
                     </DialogHeader>
@@ -3270,152 +3252,153 @@ const OwnerDashboard = () => {
                       </div>
                     </ScrollArea>
                   </DialogContent>
-      </Dialog>
+                </Dialog>
 
-
-              </div>
-              
-              {/* Internships List */}
-              <div className="rounded-lg border p-4 bg-background">
-                {ownerInternshipsLoading ? (
-                  <p className="text-sm text-muted-foreground">Loading internships…</p>
-                ) : (
-                  (() => {
-                    const internshipsFromApi = getFilteredInternships();
-                    if (!internshipsFromApi || internshipsFromApi.length === 0) {
+                {/* Internships List */}
+                <div className="rounded-lg border p-4 bg-background">
+                  {ownerInternshipsLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading internships…</p>
+                  ) : (
+                    (() => {
+                      const internshipsFromApi = getFilteredInternships();
+                      if (!internshipsFromApi || internshipsFromApi.length === 0) {
+                        return (
+                          <div className="py-8 text-center">
+                            <p className="text-sm text-muted-foreground">No internships found. Post your first internship to see it here.</p>
+                          </div>
+                        );
+                      }
                       return (
-                        <div className="py-8 text-center">
-                          <p className="text-sm text-muted-foreground">No internships found. Post your first internship to see it here.</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {internshipsFromApi.map((internship: any) => (
+                            <Card key={internship._id || internship.id} className="hover:shadow-sm transition-shadow">
+                              <CardContent className="p-4 space-y-3">
+                                <div className="flex items-start justify-between">
+                                  <div className="min-w-0">
+                                    <p className="text-base font-semibold truncate">{internship.title}</p>
+                                    <p className="text-sm text-muted-foreground truncate">{internship.company}</p>
+                                  </div>
+                                  <Badge variant="outline" className="shrink-0">{internship.status || 'active'}</Badge>
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {internship.location}
+                                </div>
+                                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                  <span>{(internship.applicants || 0)} applicants</span>
+                                  <span>{(internship.views || 0)} views</span>
+                                </div>
+                                <div className="flex gap-2 pt-1">
+                                  <Button variant="outline" size="sm" className="flex-1" onClick={() => handleViewInternshipDetails(internship._id || internship.id)}>
+                                    Details
+                                  </Button>
+                                  <Button size="sm" className="flex-1" onClick={() => handleViewInternshipApplicants(internship._id || internship.id)}>
+                                    Applicants
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
                         </div>
                       );
-                    }
-                    return (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {internshipsFromApi.map((internship: any) => (
-                  <Card key={internship._id || internship.id} className="hover:shadow-sm transition-shadow">
-                    <CardContent className="p-4 space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div className="min-w-0">
-                          <p className="text-base font-semibold truncate">{internship.title}</p>
-                          <p className="text-sm text-muted-foreground truncate">{internship.company}</p>
-                        </div>
-                        <Badge variant="outline" className="shrink-0">{internship.status || 'active'}</Badge>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {internship.location}
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{(internship.applicants || 0)} applicants</span>
-                        <span>{(internship.views || 0)} views</span>
-                      </div>
-                      <div className="flex gap-2 pt-1">
-                        <Button variant="outline" size="sm" className="flex-1" onClick={() => handleViewInternshipDetails(internship._id || internship.id)}>
-                          Details
-                        </Button>
-                        <Button size="sm" className="flex-1" onClick={() => handleViewInternshipApplicants(internship._id || internship.id)}>
-                          Applicants
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Applications View */}
-          {currentView === "applications" && (
-            <div className="max-w-7xl mx-auto">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setCurrentView("jobs")}
-                    className="flex items-center gap-2"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to Dashboard
-                  </Button>
-                  <h1 className="text-3xl font-bold gradient-text">Applications Received</h1>
+                    })()
+                  )}
                 </div>
               </div>
-              <OwnerApplicationsView />
-            </div>
-          )}
+            )}
 
-          {/* Products View */}
-          {currentView === "products" && (
-            <div className="max-w-7xl mx-auto">
-              {/* Top Section - Page Title and Action Buttons */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setCurrentView("jobs")}
-                    className="flex items-center gap-2"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to Dashboard
-                  </Button>
-                  <h1 className="text-3xl font-bold gradient-text">Product Managing</h1>
-                </div>
-                <Button className="gap-2" onClick={() => setShowAddProductDialog(true)}>
-                  <Plus className="h-4 w-4" />
-                  Add Product
-                </Button>
-              </div>
-
-              {/* Analytics Summary Section */}
-              <div className="mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  {renderProductAnalyticsCards()}
-                </div>
-              </div>
-
-              {/* Horizontal Filters Section */}
-              <Card className="mb-6">
-                <CardContent className="p-4">
-                  <div className="space-y-4">
-                    {/* Quick Action Tabs */}
-                    <div className="flex flex-wrap gap-2 border-b pb-3">
+              {/* Applications View */}
+              {currentView === "applications" && (
+                <div className="max-w-7xl mx-auto">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-4">
                       <Button 
-                        variant={selectedTab === "all-inventory" ? "default" : "outline"} 
-                        size="sm"
-                        onClick={() => handleTabChange("all-inventory")}
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setCurrentView("jobs")}
+                        className="flex items-center gap-2"
                       >
-                        All Inventory
+                        <ArrowLeft className="h-4 w-4" />
+                        Back to Dashboard
                       </Button>
-                      <Button 
-                        variant={selectedTab === "suppressed-listings" ? "default" : "outline"} 
-                        size="sm"
-                        onClick={() => handleTabChange("suppressed-listings")}
-                      >
-                        Suppressed Listings
-                      </Button>
-                      <Button 
-                        variant={selectedTab === "potential-issues" ? "default" : "outline"} 
-                        size="sm"
-                        onClick={() => handleTabChange("potential-issues")}
-                      >
-                        Potential Issues
-                      </Button>
-                      <Button 
-                        variant={selectedTab === "request-catalog" ? "default" : "outline"} 
-                        size="sm"
-                        onClick={() => handleTabChange("request-catalog")}
-                      >
-                        Request Catalog
-                      </Button>
-                      <Button 
-                        variant={selectedTab === "out-of-stock" ? "default" : "outline"} 
-                        size="sm"
-                        onClick={() => handleTabChange("out-of-stock")}
-                      >
-                        Out of Stock
-                      </Button>
+                      <h1 className="text-3xl font-bold gradient-text">Applications Received</h1>
                     </div>
+                  </div>
+                  <OwnerApplicationsView />
+                </div>
+              )}
+
+              {/* Products View */}
+              {currentView === "products" && (
+                <div className="max-w-7xl mx-auto">
+                  {/* Top Section - Page Title and Action Buttons */}
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-4">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setCurrentView("jobs")}
+                        className="flex items-center gap-2"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                        Back to Dashboard
+                      </Button>
+                      <h1 className="text-3xl font-bold gradient-text">Product Managing</h1>
+                    </div>
+                    <Button className="gap-2" onClick={() => setShowAddProductDialog(true)}>
+                      <Plus className="h-4 w-4" />
+                      Add Product
+                    </Button>
+                  </div>
+
+                  {/* Analytics Summary Section */}
+                  <div className="mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      {renderProductAnalyticsCards()}
+                    </div>
+                  </div>
+
+                  {/* Horizontal Filters Section */}
+                  <Card className="mb-6">
+                    <CardContent className="p-4">
+                      <div className="space-y-4">
+                        {/* Quick Action Tabs */}
+                        <div className="flex flex-wrap gap-2 border-b pb-3">
+                          <Button 
+                            variant={selectedTab === "all-inventory" ? "default" : "outline"} 
+                            size="sm"
+                            onClick={() => handleTabChange("all-inventory")}
+                          >
+                            All Inventory
+                          </Button>
+                          <Button 
+                            variant={selectedTab === "suppressed-listings" ? "default" : "outline"} 
+                            size="sm"
+                            onClick={() => handleTabChange("suppressed-listings")}
+                          >
+                            Suppressed Listings
+                          </Button>
+                          <Button 
+                            variant={selectedTab === "potential-issues" ? "default" : "outline"} 
+                            size="sm"
+                            onClick={() => handleTabChange("potential-issues")}
+                          >
+                            Potential Issues
+                          </Button>
+                          <Button 
+                            variant={selectedTab === "request-catalog" ? "default" : "outline"} 
+                            size="sm"
+                            onClick={() => handleTabChange("request-catalog")}
+                          >
+                            Request Catalog
+                          </Button>
+                          <Button 
+                            variant={selectedTab === "out-of-stock" ? "default" : "outline"} 
+                            size="sm"
+                            onClick={() => handleTabChange("out-of-stock")}
+                          >
+                            Out of Stock
+                          </Button>
+                        </div>
 
                                           {/* Search and Filter Row */}
                       <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
@@ -6443,7 +6426,7 @@ const OwnerDashboard = () => {
            
            <div className="py-4">
              <OpportunityForm 
-               opportunityType={selectedOpportunityType}
+               opportunityType={selectedOpportunityType as "Job" | "Internship"}
                onSuccess={() => {
                  setShowOpportunityForm(false);
                  // Refresh dashboard data
