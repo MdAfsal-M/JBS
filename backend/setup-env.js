@@ -47,8 +47,8 @@ PORT=5000
 NODE_ENV=development
 
 # Frontend URLs
-FRONTEND_URL=http://localhost:5173
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:4173
+FRONTEND_URL=https://jbs1.netlify.app/
+ALLOWED_ORIGINS=https://jbs1.netlify.app/
 
 # Email Configuration (optional - uncomment and configure if needed)
 # SMTP_HOST=smtp.gmail.com
